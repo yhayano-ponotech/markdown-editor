@@ -1,0 +1,21 @@
+.App {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor, .preview {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.editor {
+  border-right: 1px solid #ccc;
+}

@@ -1,0 +1,49 @@
+.editor-container {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+    transition: border-color 0.3s ease;
+  }
+  
+  .editor-container:hover, .editor-container:focus-within {
+    border-color: #2196f3;
+  }
+  
+  .cm-editor {
+    height: 100%;
+  }
+  
+  .cm-scroller {
+    font-family: 'Roboto Mono', monospace;
+  }
+  
+  .cm-line {
+    padding: 0 4px;
+    line-height: 1.6;
+    font-size: 16px;
+  }
+  
+  .cm-cursor {
+    border-left-color: #000;
+    border-left-width: 2px;
+  }
+  
+  .cm-activeLineGutter {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+  
+  .cm-content {
+    caret-color: #2196f3;
+  }
+  
+  .cm-line::placeholder {
+    color: #999;
+  }
+  
+  /* プレースホルダーテキストのスタイル */
+  .cm-editor.cm-focused .cm-line:first-child:empty::before {
+    content: 'ここにマークダウンを入力してください...';
+    color: #999;
+    position: absolute;
+    pointer-events: none;
+  }
