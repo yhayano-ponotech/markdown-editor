@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Box, Paper } from '@mui/material';
 import mermaid from 'mermaid';
@@ -6,7 +6,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { processMarkdown } from '../utils/markdownUtils';
 import './Preview.css';
 
-// Mermaidの初期化（アプリケーションの起動時に一度だけ実行）
 mermaid.initialize({
   startOnLoad: false,
   securityLevel: 'loose',
@@ -15,43 +14,30 @@ mermaid.initialize({
 
 const MermaidDiagram = ({ code }) => {
   const containerRef = useRef(null);
-  const [svg, setSvg] = useState('');
-  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const id = `mermaid-${uuidv4()}`;
-    let isMounted = true;
-
     const renderDiagram = async () => {
-      try {
-        const { svg } = await mermaid.render(id, code);
-        if (isMounted) {
-          setSvg(svg);
-          setError(null);
-        }
-      } catch (err) {
-        console.error('Mermaid rendering failed:', err);
-        if (isMounted) {
-          setError(err);
+      if (containerRef.current) {
+        const id = `mermaid-${uuidv4()}`;
+        try {
+          containerRef.current.innerHTML = `<div id="${id}"></div>`;
+          const { svg } = await mermaid.render(id, code);
+          if (containerRef.current) {
+            containerRef.current.innerHTML = svg;
+          }
+        } catch (error) {
+          console.error('Mermaid rendering failed:', error);
+          if (containerRef.current) {
+            containerRef.current.innerHTML = `<pre>${code}</pre>`;
+          }
         }
       }
     };
 
-    if (containerRef.current) {
-      containerRef.current.innerHTML = `<div id="${id}"></div>`;
-      renderDiagram();
-    }
+    renderDiagram();
+  }, [code, containerRef]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [code]);
-
-  if (error) {
-    return <pre>{code}</pre>;
-  }
-
-  return <div ref={containerRef} className="mermaid-diagram" dangerouslySetInnerHTML={{ __html: svg }} />;
+  return <div ref={containerRef} className="mermaid-diagram" />;
 };
 
 const Preview = ({ markdown }) => {
@@ -63,11 +49,16 @@ const Preview = ({ markdown }) => {
         <div id="preview-content">
           <ReactMarkdown
             components={{
-              p: ({ children }) => <p className="preview-paragraph">{children}</p>,
+              p: ({ children }) => {
+                if (children[0] === '&nbsp;') {
+                  return <p className="preview-paragraph empty-paragraph">&nbsp;</p>;
+                }
+                return <p className="preview-paragraph">{children}</p>;
+              },
               code: ({ node, inline, className, children, ...props }) => {
                 const match = /language-(\w+)/.exec(className || '');
                 if (match && match[1] === 'mermaid') {
-                  return <MermaidDiagram key={uuidv4()} code={String(children).trim()} />;
+                  return <MermaidDiagram code={String(children).trim()} />;
                 }
                 return <code className={className} {...props}>{children}</code>;
               },

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ThemeProvider, createTheme, CssBaseline, Box } from '@mui/material';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ThemeProvider, createTheme, CssBaseline, Box, CircularProgress } from '@mui/material';
 import { Transition } from 'react-transition-group';
 import RichEditor from './components/RichEditor';
 import Preview from './components/Preview';
@@ -8,7 +8,7 @@ import ErrorDisplay from './components/ErrorDisplay';
 import Auth from './components/Auth';
 import Sidebar from './components/Sidebar';
 import { saveDocument, loadDocument, loadDocumentList } from './utils/api';
-import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorage';
+import { saveToLocalStorage, loadFromLocalStorage, saveAutoSaveState, loadAutoSaveState } from './utils/localStorage';
 import { lintMarkdown } from './utils/markdownLinter';
 import 'svg2pdf.js';
 import html2canvas from 'html2canvas';
@@ -38,7 +38,13 @@ function App() {
   const [files, setFiles] = useState([]);
   const [currentFile, setCurrentFile] = useState(null);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [autoSave, setAutoSave] = useState(() => loadAutoSaveState());
+  const [isSaving, setIsSaving] = useState(false);
+
+  const autoSaveTimerRef = useRef(null);
   const editorRef = useRef(null);
+  const currentFileRef = useRef(null);
+  const autoSaveRef = useRef(autoSave);
 
   const theme = createTheme({
     palette: {
@@ -90,29 +96,79 @@ function App() {
     }
   }, [session]);
 
-  const handleMarkdownChange = async (newMarkdown) => {
+  // 新しいuseEffect: autoSaveの状態変更をログに出力
+  useEffect(() => {
+    console.log('Auto-save status changed:', autoSave);
+    autoSaveRef.current = autoSave;
+    saveAutoSaveState(autoSave);
+  }, [autoSave]);
+
+  useEffect(() => {
+    currentFileRef.current = currentFile;
+    console.log('Current file updated:', currentFile);
+  }, [currentFile]);
+
+  const handleAutoSaveToggle = useCallback((value) => {
+    console.log('Setting auto-save to:', value);
+    setAutoSave(value);
+  }, []);
+
+  const handleMarkdownChange = useCallback(async (newMarkdown) => {
     setMarkdown(newMarkdown);
     const lintErrors = await lintMarkdown(newMarkdown);
     setErrors(lintErrors);
     saveToLocalStorage('markdown-content', newMarkdown);
-  };
+
+    console.log('Markdown changed. Auto-save:', autoSaveRef.current, 'Current file:', currentFileRef.current);
+
+    if (autoSaveRef.current && currentFileRef.current) {
+      console.log('Preparing to auto-save...');
+      setIsSaving(true);
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+      autoSaveTimerRef.current = setTimeout(async () => {
+        console.log('Auto-save timer triggered');
+        try {
+          await saveDocument(newMarkdown, currentFileRef.current);
+          console.log('Auto-saved successfully');
+        } catch (error) {
+          console.error('Auto-save failed:', error);
+        } finally {
+          setIsSaving(false);
+        }
+      }, 2000);
+    } else {
+      console.log('Auto-save conditions not met');
+    }
+  }, []); // 依存配列を空にする
 
   const handleSave = async (saveType) => {
+    console.log('Manual save triggered:', saveType);
     try {
-      let fileName = currentFile;
+      setIsSaving(true);
+      let fileName = currentFileRef.current;
       if (saveType === 'saveAs' || !fileName) {
         fileName = prompt('Enter file name:');
-        if (!fileName) return;
+        if (!fileName) {
+          setIsSaving(false);
+          return;
+        }
       }
       await saveDocument(markdown, fileName);
       setCurrentFile(fileName);
+      currentFileRef.current = fileName;
       saveToLocalStorage('last-selected-file', fileName);
       const updatedFiles = await loadDocumentList();
       setFiles(updatedFiles);
-      alert('Document saved successfully!');
+      if (saveType !== 'auto') {
+        alert('Document saved successfully!');
+      }
     } catch (error) {
       console.error('Error saving document:', error);
       alert('Failed to save document');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -121,7 +177,9 @@ function App() {
       const content = await loadDocument(fileName);
       setMarkdown(content);
       setCurrentFile(fileName);
+      currentFileRef.current = fileName;
       saveToLocalStorage('last-selected-file', fileName);
+      console.log('File selected:', fileName);
     } catch (error) {
       console.error('Error loading document:', error);
       alert('Failed to load document');
@@ -130,55 +188,63 @@ function App() {
 
   const handleExportPDF = async () => {
     const element = document.getElementById('preview-content');
-    const pdf = new jsPDF();
-    let verticalOffset = 10;
-
-    const processMermaidDiagrams = async () => {
-      const mermaidDiagrams = element.querySelectorAll('.mermaid-diagram');
-      for (const diagram of mermaidDiagrams) {
-        try {
-          const canvas = await html2canvas(diagram, {
-            scale: 2,
-            logging: false,
-            useCORS: true
-          });
-          const imgData = canvas.toDataURL('image/png');
-          const imgProps = pdf.getImageProperties(imgData);
-          const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
-          const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-          if (verticalOffset + pdfHeight > pdf.internal.pageSize.getHeight() - 10) {
-            pdf.addPage();
-            verticalOffset = 10;
-          }
-
-          pdf.addImage(imgData, 'PNG', 10, verticalOffset, pdfWidth, pdfHeight);
-          verticalOffset += pdfHeight + 10;
-        } catch (error) {
-          console.error('Error processing Mermaid diagram:', error);
-        }
-      }
-    };
-
-    const processTextElements = () => {
-      const textElements = element.querySelectorAll('p');
-      for (const textElement of textElements) {
-        pdf.setFontSize(12);
-        const splittedText = pdf.splitTextToSize(textElement.textContent, pdf.internal.pageSize.getWidth() - 20);
+    const pdf = new jsPDF('p', 'pt', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const margin = 40;
+    let verticalOffset = margin;
+  
+    const processElement = async (el) => {
+      if (el.classList.contains('mermaid-diagram')) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = el.innerHTML;
+        document.body.appendChild(tempDiv);
         
-        if (verticalOffset + splittedText.length * 7 > pdf.internal.pageSize.getHeight() - 10) {
+        const canvas = await html2canvas(tempDiv, {
+          scale: 4, // 解像度を上げる
+          logging: false,
+          useCORS: true
+        });
+        
+        document.body.removeChild(tempDiv);
+  
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = pdfWidth - 2 * margin;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  
+        if (verticalOffset + imgHeight > pdfHeight - margin) {
           pdf.addPage();
-          verticalOffset = 10;
+          verticalOffset = margin;
         }
-
-        pdf.text(splittedText, 10, verticalOffset);
-        verticalOffset += splittedText.length * 7 + 5;
+  
+        pdf.addImage(imgData, 'PNG', margin, verticalOffset, imgWidth, imgHeight);
+        verticalOffset += imgHeight + 20;
+      } else if (el.tagName === 'P') {
+        pdf.setFontSize(12);
+        const text = el.textContent;
+        const splitText = pdf.splitTextToSize(text, pdfWidth - 2 * margin);
+  
+        if (verticalOffset + pdf.getTextDimensions(splitText).h > pdfHeight - margin) {
+          pdf.addPage();
+          verticalOffset = margin;
+        }
+  
+        pdf.text(splitText, margin, verticalOffset);
+        verticalOffset += pdf.getTextDimensions(splitText).h + 10;
       }
     };
-
-    processTextElements();
-    await processMermaidDiagrams();
-
+  
+    const processChildren = async (parent) => {
+      for (const child of parent.children) {
+        await processElement(child);
+        if (child.children.length > 0) {
+          await processChildren(child);
+        }
+      }
+    };
+  
+    await processChildren(element);
+  
     pdf.save('document.pdf');
   };
 
@@ -201,6 +267,9 @@ function App() {
           setDarkMode={setDarkMode}
           onToggleSidebar={() => setShowSidebar(!showSidebar)}
           currentFile={currentFile}
+          autoSave={autoSave}
+          setAutoSave={handleAutoSaveToggle}
+          isSaving={isSaving}
         />
         <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           <Transition in={showSidebar} timeout={duration}>
