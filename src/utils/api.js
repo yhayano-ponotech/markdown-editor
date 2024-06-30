@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 
-export const saveDocument = async (content, fileName) => {
+export const saveDocument = async (content, fileName, font) => {
+  console.log('Saving document in API with font:', font);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
@@ -10,26 +11,7 @@ export const saveDocument = async (content, fileName) => {
       user_id: user.id, 
       content, 
       name: fileName,
-      updated_at: new Date().toISOString()
-    }, { 
-      onConflict: 'user_id,name', 
-      returning: 'minimal'
-    });
-
-  if (error) throw error;
-  return data;
-};
-
-export const autoSaveDocument = async (content, fileName) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('User not authenticated');
-
-  const { data, error } = await supabase
-    .from('documents')
-    .upsert({ 
-      user_id: user.id, 
-      content, 
-      name: fileName,
+      font,
       updated_at: new Date().toISOString()
     }, { 
       onConflict: 'user_id,name', 
@@ -46,13 +28,13 @@ export const loadDocument = async (fileName) => {
 
   const { data, error } = await supabase
     .from('documents')
-    .select('content')
+    .select('content, font')
     .eq('user_id', user.id)
     .eq('name', fileName)
     .single();
 
   if (error) throw error;
-  return data?.content || '';
+  return { content: data?.content || '', font: data?.font || '' };
 };
 
 export const loadDocumentList = async () => {
@@ -67,4 +49,9 @@ export const loadDocumentList = async () => {
 
   if (error) throw error;
   return data || [];
+};
+
+export const loadLocalFonts = () => {
+  // フォントファイル名のリストを返す
+  return ['xxxx.ttf']; // フォントファイル名のリスト
 };

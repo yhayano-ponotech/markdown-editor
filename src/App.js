@@ -15,6 +15,8 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { supabase } from './utils/supabaseClient';
 import mermaid from 'mermaid';
+import './fonts.css';
+import { installFont } from './utils/fontUtils';
 
 const duration = 300;
 
@@ -40,11 +42,14 @@ function App() {
   const [showSidebar, setShowSidebar] = useState(true);
   const [autoSave, setAutoSave] = useState(() => loadAutoSaveState());
   const [isSaving, setIsSaving] = useState(false);
+  const [fonts, setFonts] = useState([]);
+  const [currentFont, setCurrentFont] = useState('');
 
   const autoSaveTimerRef = useRef(null);
   const editorRef = useRef(null);
   const currentFileRef = useRef(null);
   const autoSaveRef = useRef(autoSave);
+  const currentFontRef = useRef(currentFont);
 
   const theme = createTheme({
     palette: {
@@ -83,8 +88,9 @@ function App() {
       loadDocumentList().then(setFiles).catch(console.error);
       const lastSelectedFile = loadFromLocalStorage('last-selected-file');
       if (lastSelectedFile) {
-        loadDocument(lastSelectedFile).then((content) => {
+        loadDocument(lastSelectedFile).then(({ content, font }) => {
           setMarkdown(content);
+          setCurrentFont(font || 'Arial');
           setCurrentFile(lastSelectedFile);
         }).catch(console.error);
       }
@@ -96,7 +102,6 @@ function App() {
     }
   }, [session]);
 
-  // 新しいuseEffect: autoSaveの状態変更をログに出力
   useEffect(() => {
     console.log('Auto-save status changed:', autoSave);
     autoSaveRef.current = autoSave;
@@ -107,6 +112,22 @@ function App() {
     currentFileRef.current = currentFile;
     console.log('Current file updated:', currentFile);
   }, [currentFile]);
+
+  useEffect(() => {
+    currentFontRef.current = currentFont;
+  }, [currentFont]);
+
+  useEffect(() => {
+    // フォントリストを取得
+    const fontContext = require.context('./assets/fonts', false, /\.ttf$/);
+    const fontFiles = fontContext.keys().map(key => key.replace('./', ''));
+    const fontNames = fontFiles.map(file => file.replace('.ttf', ''));
+    setFonts(fontNames);
+    
+    if (fontNames.length > 0) {
+      setCurrentFont(fontNames[0]);
+    }
+  }, []);
 
   const handleAutoSaveToggle = useCallback((value) => {
     console.log('Setting auto-save to:', value);
@@ -130,7 +151,7 @@ function App() {
       autoSaveTimerRef.current = setTimeout(async () => {
         console.log('Auto-save timer triggered');
         try {
-          await saveDocument(newMarkdown, currentFileRef.current);
+          await saveDocument(newMarkdown, currentFileRef.current, currentFontRef.current);
           console.log('Auto-saved successfully');
         } catch (error) {
           console.error('Auto-save failed:', error);
@@ -141,9 +162,9 @@ function App() {
     } else {
       console.log('Auto-save conditions not met');
     }
-  }, []); // 依存配列を空にする
+  }, []);
 
-  const handleSave = async (saveType) => {
+  const handleSave = useCallback(async (saveType) => {
     console.log('Manual save triggered:', saveType);
     try {
       setIsSaving(true);
@@ -155,7 +176,8 @@ function App() {
           return;
         }
       }
-      await saveDocument(markdown, fileName);
+      console.log('Saving document with font:', currentFontRef.current);
+      await saveDocument(markdown, fileName, currentFontRef.current);
       setCurrentFile(fileName);
       currentFileRef.current = fileName;
       saveToLocalStorage('last-selected-file', fileName);
@@ -170,12 +192,13 @@ function App() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [markdown]);
 
   const handleFileSelect = async (fileName) => {
     try {
-      const content = await loadDocument(fileName);
+      const { content, font } = await loadDocument(fileName);
       setMarkdown(content);
+      setCurrentFont(font || 'Arial');
       setCurrentFile(fileName);
       currentFileRef.current = fileName;
       saveToLocalStorage('last-selected-file', fileName);
@@ -189,10 +212,22 @@ function App() {
   const handleExportPDF = async () => {
     const element = document.getElementById('preview-content');
     const pdf = new jsPDF('p', 'pt', 'a4');
+    
+    // カスタムフォントをインストール
+    const fontInstalled = await installFont(pdf, currentFont, `/assets/fonts/${currentFont}.ttf`);
+    
+    if (fontInstalled) {
+      pdf.setFont(currentFont);
+    } else {
+      console.warn('Failed to load custom font. Using default font.');
+    }
+    
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
     const margin = 40;
     let verticalOffset = margin;
+
+    pdf.setFontSize(12);
   
     const processElement = async (el) => {
       if (el.classList.contains('mermaid-diagram')) {
@@ -201,7 +236,7 @@ function App() {
         document.body.appendChild(tempDiv);
         
         const canvas = await html2canvas(tempDiv, {
-          scale: 4, // 解像度を上げる
+          scale: 4,
           logging: false,
           useCORS: true
         });
@@ -220,15 +255,14 @@ function App() {
         pdf.addImage(imgData, 'PNG', margin, verticalOffset, imgWidth, imgHeight);
         verticalOffset += imgHeight + 20;
       } else if (el.tagName === 'P') {
-        pdf.setFontSize(12);
         const text = el.textContent;
         const splitText = pdf.splitTextToSize(text, pdfWidth - 2 * margin);
-  
+
         if (verticalOffset + pdf.getTextDimensions(splitText).h > pdfHeight - margin) {
           pdf.addPage();
           verticalOffset = margin;
         }
-  
+
         pdf.text(splitText, margin, verticalOffset);
         verticalOffset += pdf.getTextDimensions(splitText).h + 10;
       }
@@ -247,6 +281,15 @@ function App() {
   
     pdf.save('document.pdf');
   };
+
+  const handleFontChange = useCallback((newFont) => {
+    console.log('Changing font to:', newFont);
+    setCurrentFont(newFont);
+    currentFontRef.current = newFont;
+    if (autoSave && currentFile) {
+      handleSave('auto');
+    }
+  }, [autoSave, currentFile, handleSave]);
 
   if (!session) {
     return <Auth onLogin={ async () => { 
@@ -270,6 +313,9 @@ function App() {
           autoSave={autoSave}
           setAutoSave={handleAutoSaveToggle}
           isSaving={isSaving}
+          currentFont={currentFont}
+          fonts={fonts}
+          onFontChange={handleFontChange}
         />
         <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           <Transition in={showSidebar} timeout={duration}>
@@ -285,10 +331,17 @@ function App() {
           <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column' }}>
             <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
               <Box sx={{ flex: 1, overflow: 'auto' }}>
-                <RichEditor ref={editorRef} value={markdown} onChange={handleMarkdownChange} />
+                <RichEditor
+                  ref={editorRef}
+                  value={markdown}
+                  onChange={handleMarkdownChange}
+                  currentFont={currentFont}
+                  fonts={fonts}
+                  onFontChange={handleFontChange}
+                />
               </Box>
               <Box sx={{ flex: 1, overflow: 'auto' }}>
-                <Preview markdown={markdown} />
+                <Preview markdown={markdown} font={currentFont} />
               </Box>
             </Box>
           </Box>

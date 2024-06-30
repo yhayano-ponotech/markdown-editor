@@ -1,0 +1,64 @@
+@font-face {
+    font-family: 'HinaMincho';
+    src: url('./assets/fonts/HinaMincho.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'KiwiMaru';
+    src: url('./assets/fonts/KiwiMaru.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Kosugi';
+    src: url('./assets/fonts/Kosugi.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'KosugiMaru';
+    src: url('./assets/fonts/KosugiMaru.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'MPLUS1';
+    src: url('./assets/fonts/MPLUS1.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'NotoSansJP';
+    src: url('./assets/fonts/NotoSansJP.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'NotoSerifJP';
+    src: url('./assets/fonts/NotoSerifJP.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'SawarabiGothic';
+    src: url('./assets/fonts/SawarabiGothic.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'SawarabiMincho';
+    src: url('./assets/fonts/SawarabiMincho.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'ShipporiMincho';
+    src: url('./assets/fonts/ShipporiMincho.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'ZenKakuGothicNew';
+    src: url('./assets/fonts/ZenKakuGothicNew.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'ZenMaruGothic';
+    src: url('./assets/fonts/ZenMaruGothic.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'ZenOldMincho';
+    src: url('./assets/fonts/ZenOldMincho.ttf') format('truetype');
+}

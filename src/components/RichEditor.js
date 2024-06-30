@@ -4,7 +4,7 @@ import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { keymap } from '@codemirror/view';
 import { defaultKeymap } from '@codemirror/commands';
-import { Box, Button, ButtonGroup } from '@mui/material';
+import { Box, Button, ButtonGroup, Select, MenuItem } from '@mui/material';
 import FormatBoldIcon from '@mui/icons-material/FormatBold';
 import FormatItalicIcon from '@mui/icons-material/FormatItalic';
 import LinkIcon from '@mui/icons-material/Link';
@@ -13,7 +13,7 @@ import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import './RichEditor.css';
 
-const RichEditor = forwardRef(({ value, onChange }, ref) => {
+const RichEditor = forwardRef(({ value, onChange, onFontChange, currentFont, fonts }, ref) => {
   const editorRef = useRef(null);
   const viewRef = useRef(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -57,10 +57,20 @@ const RichEditor = forwardRef(({ value, onChange }, ref) => {
   useEffect(() => {
     if (isEditorReady && viewRef.current && value !== viewRef.current.state.doc.toString()) {
       const currentPos = viewRef.current.state.selection.main.head;
-      viewRef.current.dispatch({
+      const transaction = viewRef.current.state.update({
         changes: { from: 0, to: viewRef.current.state.doc.length, insert: value },
-        selection: { anchor: currentPos, head: currentPos },
+        selection: { anchor: Math.min(currentPos, value.length), head: Math.min(currentPos, value.length) },
       });
+      
+      try {
+        viewRef.current.dispatch(transaction);
+      } catch (error) {
+        console.error('Error updating editor content:', error);
+        viewRef.current.dispatch({
+          changes: { from: 0, to: viewRef.current.state.doc.length, insert: value },
+          selection: { anchor: 0, head: 0 },
+        });
+      }
     }
   }, [value, isEditorReady]);
 
@@ -85,14 +95,28 @@ const RichEditor = forwardRef(({ value, onChange }, ref) => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <ButtonGroup variant="contained" sx={{ mb: 1 }}>
-        <Button onClick={() => insertMarkdown('**', '**')}><FormatBoldIcon /></Button>
-        <Button onClick={() => insertMarkdown('*', '*')}><FormatItalicIcon /></Button>
-        <Button onClick={() => insertMarkdown('[', '](url)')}><LinkIcon /></Button>
-        <Button onClick={() => insertMarkdown('- ')}><FormatListBulletedIcon /></Button>
-        <Button onClick={() => insertMarkdown('1. ')}><FormatListNumberedIcon /></Button>
-        <Button onClick={() => insertMarkdown('```mermaid\n', '\n```')}><AccountTreeIcon /></Button>
-      </ButtonGroup>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+        <ButtonGroup variant="contained">
+          <Button onClick={() => insertMarkdown('**', '**')}><FormatBoldIcon /></Button>
+          <Button onClick={() => insertMarkdown('*', '*')}><FormatItalicIcon /></Button>
+          <Button onClick={() => insertMarkdown('[', '](url)')}><LinkIcon /></Button>
+          <Button onClick={() => insertMarkdown('- ')}><FormatListBulletedIcon /></Button>
+          <Button onClick={() => insertMarkdown('1. ')}><FormatListNumberedIcon /></Button>
+          <Button onClick={() => insertMarkdown('```mermaid\n', '\n```')}><AccountTreeIcon /></Button>
+        </ButtonGroup>
+        <Select
+          value={currentFont}
+          onChange={(e) => {
+            console.log('Font selected:', e.target.value);
+            onFontChange(e.target.value);
+          }}
+          sx={{ minWidth: 120 }}
+        >
+          {fonts.map((font) => (
+            <MenuItem key={font} value={font}>{font}</MenuItem>
+          ))}
+        </Select>
+      </Box>
       <Box ref={editorRef} className="editor-container" sx={{ flexGrow: 1, overflow: 'auto' }} />
     </Box>
   );

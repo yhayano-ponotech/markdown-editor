@@ -40,13 +40,14 @@ const MermaidDiagram = ({ code }) => {
   return <div ref={containerRef} className="mermaid-diagram" />;
 };
 
-const Preview = ({ markdown }) => {
+const Preview = ({ markdown, font }) => {
+  console.log('Preview rendering with font:', font);
   const processedMarkdown = processMarkdown(markdown);
 
   return (
     <Box sx={{ height: '100%', overflow: 'auto', p: 2 }}>
       <Paper elevation={3} sx={{ p: 2, minHeight: '100%' }}>
-        <div id="preview-content">
+        <div id="preview-content" style={{ fontFamily: `'${font}', sans-serif` }}>
           <ReactMarkdown
             components={{
               p: ({ children }) => {
