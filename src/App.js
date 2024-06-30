@@ -118,30 +118,23 @@ function App() {
     const lintErrors = await lintMarkdown(newMarkdown);
     setErrors(lintErrors);
     saveToLocalStorage('markdown-content', newMarkdown);
-
-    console.log('Markdown changed. Auto-save:', autoSaveRef.current, 'Current file:', currentFileRef.current);
-
+  
     if (autoSaveRef.current && currentFileRef.current) {
-      console.log('Preparing to auto-save...');
       setIsSaving(true);
       if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current);
       }
       autoSaveTimerRef.current = setTimeout(async () => {
-        console.log('Auto-save timer triggered');
         try {
           await saveDocument(newMarkdown, currentFileRef.current);
-          console.log('Auto-saved successfully');
         } catch (error) {
           console.error('Auto-save failed:', error);
         } finally {
           setIsSaving(false);
         }
       }, 2000);
-    } else {
-      console.log('Auto-save conditions not met');
     }
-  }, []); // 依存配列を空にする
+  }, []);
 
   const handleSave = async (saveType) => {
     console.log('Manual save triggered:', saveType);
