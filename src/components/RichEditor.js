@@ -57,10 +57,22 @@ const RichEditor = forwardRef(({ value, onChange }, ref) => {
   useEffect(() => {
     if (isEditorReady && viewRef.current && value !== viewRef.current.state.doc.toString()) {
       const currentPos = viewRef.current.state.selection.main.head;
-      viewRef.current.dispatch({
+      const newPos = Math.min(currentPos, value.length);
+      const transaction = viewRef.current.state.update({
         changes: { from: 0, to: viewRef.current.state.doc.length, insert: value },
-        selection: { anchor: currentPos, head: currentPos },
+        selection: { anchor: newPos, head: newPos },
       });
+      
+      try {
+        viewRef.current.dispatch(transaction);
+      } catch (error) {
+        console.error('Error updating editor content:', error);
+        // エラーが発生した場合、エディタの内容を安全に更新
+        viewRef.current.dispatch({
+          changes: { from: 0, to: viewRef.current.state.doc.length, insert: value },
+          selection: { anchor: 0, head: 0 },
+        });
+      }
     }
   }, [value, isEditorReady]);
 
