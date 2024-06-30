@@ -186,66 +186,33 @@ function App() {
     }
   };
 
-  const handleExportPDF = async () => {
-    const element = document.getElementById('preview-content');
-    const pdf = new jsPDF('p', 'pt', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    const margin = 40;
-    let verticalOffset = margin;
-  
-    const processElement = async (el) => {
-      if (el.classList.contains('mermaid-diagram')) {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = el.innerHTML;
-        document.body.appendChild(tempDiv);
-        
-        const canvas = await html2canvas(tempDiv, {
-          scale: 4, // 解像度を上げる
-          logging: false,
-          useCORS: true
-        });
-        
-        document.body.removeChild(tempDiv);
-  
-        const imgData = canvas.toDataURL('image/png');
-        const imgWidth = pdfWidth - 2 * margin;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-  
-        if (verticalOffset + imgHeight > pdfHeight - margin) {
-          pdf.addPage();
-          verticalOffset = margin;
-        }
-  
-        pdf.addImage(imgData, 'PNG', margin, verticalOffset, imgWidth, imgHeight);
-        verticalOffset += imgHeight + 20;
-      } else if (el.tagName === 'P') {
-        pdf.setFontSize(12);
-        const text = el.textContent;
-        const splitText = pdf.splitTextToSize(text, pdfWidth - 2 * margin);
-  
-        if (verticalOffset + pdf.getTextDimensions(splitText).h > pdfHeight - margin) {
-          pdf.addPage();
-          verticalOffset = margin;
-        }
-  
-        pdf.text(splitText, margin, verticalOffset);
-        verticalOffset += pdf.getTextDimensions(splitText).h + 10;
+  const handleGeneratePDF = async () => {
+    try {
+      const response = await fetch('/.netlify/functions/generatePDF', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ markdown }),
+      });
+
+      if (!response.ok) {
+        throw new Error('PDF generation failed');
       }
-    };
-  
-    const processChildren = async (parent) => {
-      for (const child of parent.children) {
-        await processElement(child);
-        if (child.children.length > 0) {
-          await processChildren(child);
-        }
-      }
-    };
-  
-    await processChildren(element);
-  
-    pdf.save('document.pdf');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = 'document.pdf';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
   };
 
   if (!session) {
@@ -262,7 +229,7 @@ function App() {
         <Toolbar
           onSave={() => handleSave('save')}
           onSaveAs={() => handleSave('saveAs')}
-          onExportPDF={handleExportPDF}
+          onExportPDF={handleGeneratePDF}
           darkMode={darkMode}
           setDarkMode={setDarkMode}
           onToggleSidebar={() => setShowSidebar(!showSidebar)}

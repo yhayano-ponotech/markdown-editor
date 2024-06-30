@@ -1,0 +1,55 @@
+{
+  "version": "3",
+  "remote": {
+    "https://edge.netlify.com/": "ff84a16f192fdb43db8b9dff869889f555c05857d075044d2a7cfa54c283a0a0",
+    "https://edge.netlify.com/bootstrap/config.ts": "0aa0a225d978b89e0e62cbd853701605199e7a84095e55eeb70147faf1a24803",
+    "https://edge.netlify.com/bootstrap/context.ts": "8f99269eeeeccf9b852e6089cc648c962a0ea20b2198b8b38b38e3b2ce2b9143",
+    "https://edge.netlify.com/bootstrap/cookie.ts": "8b0baae708989ca183c6f3b4ab3d029e6abcbc2e43f93edeb0ff447b3bbc3a05",
+    "https://edge.netlify.com/bootstrap/edge_function.ts": "b8253e86aa83c67341f5cfedeba5049d77fbf84dcab7eceff7566b7728ae9b39",
+    "https://edge.netlify.com/bootstrap/globals.ts": "38f9e0be6c2c78206bf14d2387d41964d38bbe81644b3668e203c6f6473408a7"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@babel/plugin-proposal-private-property-in-object@^7.21.11",
+        "npm:@codemirror/commands@^6.6.0",
+        "npm:@codemirror/lang-markdown@^6.2.5",
+        "npm:@codemirror/state@^6.4.1",
+        "npm:@codemirror/view@^6.28.2",
+        "npm:@emotion/react@^11.11.4",
+        "npm:@emotion/styled@^11.11.5",
+        "npm:@hookform/resolvers@^3.6.0",
+        "npm:@mermaid-js/mermaid-cli@^10.9.1",
+        "npm:@mui/icons-material@^5.15.20",
+        "npm:@mui/material@^5.15.20",
+        "npm:@supabase/supabase-js@^2.44.2",
+        "npm:@testing-library/jest-dom@^6.4.6",
+        "npm:@testing-library/react@^16.0.0",
+        "npm:@testing-library/user-event@^14.5.2",
+        "npm:@uiw/react-codemirror@^4.22.2",
+        "npm:chrome-aws-lambda@~6.0.0",
+        "npm:codemirror@^6.0.1",
+        "npm:customize-cra@^1.0.0",
+        "npm:html2canvas@^1.4.1",
+        "npm:jest@^29.7.0",
+        "npm:jspdf@^2.5.1",
+        "npm:marked@^13.0.1",
+        "npm:mermaid@^10.9.1",
+        "npm:netlify-cli@^17.30.0",
+        "npm:puppeteer-core@~6.0.0",
+        "npm:react-app-rewired@^2.2.1",
+        "npm:react-dom@^18.3.1",
+        "npm:react-hook-form@^7.52.0",
+        "npm:react-markdown@^9.0.1",
+        "npm:react-scripts@5.0.1",
+        "npm:react@^18.3.1",
+        "npm:remark-lint@^10.0.0",
+        "npm:remark-preset-lint-recommended@^7.0.0",
+        "npm:remark@^15.0.1",
+        "npm:svg2pdf.js@^2.2.4",
+        "npm:web-vitals@^2.1.4",
+        "npm:yup@^1.4.0"
+      ]
+    }
+  }
+}
